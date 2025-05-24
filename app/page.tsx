@@ -24,12 +24,12 @@ export default function Page() {
       const res = await fetch(`/api/income?ticker=${ticker}`);
       const json = await res.json();
 
-      if (json.error) {
-        setError(json.error);
+      if (json.error || !Array.isArray(json.data)) {
+        setError('데이터 불러오기 실패');
         return;
       }
 
-      const reports = json.data.reverse(); // 최신이 오른쪽
+      const reports = json.data.reverse();
       const stats = {
         totalRevenue: [],
         netIncome: [],
@@ -65,7 +65,7 @@ export default function Page() {
 
       const priceRes = await fetch(`/api/price?ticker=${ticker}`);
       const priceJson = await priceRes.json();
-      if (!priceJson.error) {
+      if (!priceJson.error && Array.isArray(priceJson.prices)) {
         setPrices(priceJson.prices.map(p => ({ date: p.date, value: p.close })).reverse());
       }
     } catch (e: any) {
@@ -96,6 +96,7 @@ export default function Page() {
         list="tickers"
         value={ticker}
         onChange={e => setTicker(e.target.value)}
+        placeholder="티커 (예: AAPL)"
         style={{ padding: '0.5rem', marginRight: '1rem', fontSize: '1rem' }}
       />
       <datalist id="tickers">
