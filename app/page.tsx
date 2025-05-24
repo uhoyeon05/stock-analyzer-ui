@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -24,48 +25,31 @@ export default function Page() {
       const res = await fetch(`/api/income?ticker=${ticker}`);
       const json = await res.json();
 
-      if (json.error || !Array.isArray(json.data)) {
-        setError('데이터 불러오기 실패');
+      if (json.error) {
+        setError(json.error);
         return;
       }
 
       const reports = json.data.reverse();
       const stats = {
         totalRevenue: [],
-        netIncome: [],
-        operatingMargin: [],
-        eps: [],
-        per: [],
-        pbr: [],
-        roe: [],
-        debtRatio: [],
+        netIncome: []
       };
 
       for (const r of reports) {
         const date = r.fiscalDateEnding;
         const rev = +r.totalRevenue;
         const ni = +r.netIncome;
-        const oe = +r.operatingIncome;
-        const ta = +r.totalAssets;
-        const tl = +r.totalLiabilities;
-        const equity = ta - tl;
-        const shares = +r.commonStockSharesOutstanding;
 
         stats.totalRevenue.push({ date, value: rev });
         stats.netIncome.push({ date, value: ni });
-        stats.operatingMargin.push({ date, value: (oe / rev) * 100 });
-        stats.eps.push({ date, value: ni / shares });
-        stats.per.push({ date, value: rev && shares ? rev / shares : 0 });
-        stats.pbr.push({ date, value: equity ? rev / equity : 0 });
-        stats.roe.push({ date, value: equity ? (ni / equity) * 100 : 0 });
-        stats.debtRatio.push({ date, value: equity ? (tl / equity) * 100 : 0 });
       }
 
       setStatMap(stats);
 
       const priceRes = await fetch(`/api/price?ticker=${ticker}`);
       const priceJson = await priceRes.json();
-      if (!priceJson.error && Array.isArray(priceJson.prices)) {
+      if (!priceJson.error) {
         setPrices(priceJson.prices.map(p => ({ date: p.date, value: p.close })).reverse());
       }
     } catch (e: any) {
@@ -96,7 +80,6 @@ export default function Page() {
         list="tickers"
         value={ticker}
         onChange={e => setTicker(e.target.value)}
-        placeholder="티커 (예: AAPL)"
         style={{ padding: '0.5rem', marginRight: '1rem', fontSize: '1rem' }}
       />
       <datalist id="tickers">
@@ -117,31 +100,8 @@ export default function Page() {
       {prices.length > 0 &&
         renderChart("주가 추이", prices, "#00eaff")}
 
-      {Object.entries(statMap).map(([key, data]) =>
-        renderChart(
-          {
-            totalRevenue: "매출 추이",
-            netIncome: "순이익 추이",
-            operatingMargin: "영업이익률 (%)",
-            eps: "EPS",
-            per: "PER",
-            pbr: "PBR",
-            roe: "ROE (%)",
-            debtRatio: "부채비율 (%)",
-          }[key],
-          data,
-          {
-            totalRevenue: "#1f77b4",
-            netIncome: "#ff7f0e",
-            operatingMargin: "#2ca02c",
-            eps: "#d62728",
-            per: "#9467bd",
-            pbr: "#8c564b",
-            roe: "#e377c2",
-            debtRatio: "#7f7f7f",
-          }[key]
-        )
-      )}
+      {statMap.totalRevenue && renderChart("매출 추이", statMap.totalRevenue, "#1f77b4")}
+      {statMap.netIncome && renderChart("순이익 추이", statMap.netIncome, "#ff7f0e")}
     </div>
   );
 }
