@@ -1,138 +1,152 @@
 'use client';
-
-import { useState } from 'react';
+import { useState } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from 'recharts';
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from "recharts";
+
+const formatMillion = (value: number) => `${(value / 1_000_000).toFixed(0)}M`;
 
 export default function Page() {
-  const [ticker, setTicker] = useState('AAPL');
-  const [prices, setPrices] = useState([]);
-  const [statMap, setStatMap] = useState({});
-  const [error, setError] = useState('');
-
-  const formatNumber = (num: number) => {
-    if (Math.abs(num) >= 1_0000_0000) return `${(num / 1_0000_0000).toFixed(1)}억`;
-    if (Math.abs(num) >= 1_0000) return `${(num / 1_0000).toFixed(1)}만`;
-    return num;
-  };
+  const [ticker, setTicker] = useState("");
+  const [priceData, setPriceData] = useState([]);
+  const [incomeData, setIncomeData] = useState([]);
+  const [metricsData, setMetricsData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const fetchData = async () => {
-    setError('');
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch(`/api/income?ticker=${ticker}`);
-      const json = await res.json();
-
-      if (json.error) {
-        setError(json.error);
-        return;
-      }
-
-      const reports = json.data.reverse(); // 최신순 오른쪽으로
-      const stats = {
-        totalRevenue: [],
-        netIncome: [],
-        operatingMargin: [],
-        eps: [],
-        per: [],
-        pbr: [],
-        roe: [],
-        debtRatio: [],
-      };
-
-      for (const r of reports) {
-        const date = r.fiscalDateEnding;
-        const rev = +r.totalRevenue;
-        const ni = +r.netIncome;
-        const oe = +r.operatingIncome;
-        const ta = +r.totalAssets;
-        const tl = +r.totalLiabilities;
-        const equity = ta - tl;
-        const shares = +r.commonStockSharesOutstanding;
-
-        stats.totalRevenue.push({ date, value: rev });
-        stats.netIncome.push({ date, value: ni });
-        stats.operatingMargin.push({ date, value: (oe / rev) * 100 });
-        stats.eps.push({ date, value: ni / shares });
-        stats.per.push({ date, value: rev && shares ? rev / shares : 0 });
-        stats.pbr.push({ date, value: equity ? rev / equity : 0 });
-        stats.roe.push({ date, value: equity ? (ni / equity) * 100 : 0 });
-        stats.debtRatio.push({ date, value: equity ? (tl / equity) * 100 : 0 });
-      }
-
-      setStatMap(stats);
-
-      // 주가 따로 가져오기
-      const priceRes = await fetch(`/api/price?ticker=${ticker}`);
+      const upperTicker = ticker.toUpperCase();
+      const priceRes = await fetch(`/api/price?ticker=${upperTicker}`);
       const priceJson = await priceRes.json();
-      if (!priceJson.error) setPrices(priceJson.prices.reverse()); // 최신 오른쪽
-    } catch (e: any) {
-      setError('API 오류 발생');
+      const incomeRes = await fetch(`/api/income?ticker=${upperTicker}`);
+      const incomeJson = await incomeRes.json();
+
+      if (priceJson.error || incomeJson.error) throw new Error("API 오류");
+
+      setPriceData(priceJson.prices.reverse());
+      const reports = (incomeJson.data || []).reverse();
+
+      setIncomeData(
+        reports.map((r) => ({
+          date: r.fiscalDateEnding,
+          revenue: Number(r.totalRevenue),
+          netIncome: Number(r.netIncome)
+        }))
+      );
+
+      setMetricsData(
+        reports.map((r) => ({
+          date: r.fiscalDateEnding,
+          operatingMargin:
+            r.operatingIncome && r.totalRevenue
+              ? (Number(r.operatingIncome) / Number(r.totalRevenue)) * 100
+              : null,
+          eps: r.eps ? Number(r.eps) : null,
+          roe:
+            r.netIncome && r.totalShareholderEquity
+              ? (Number(r.netIncome) / Number(r.totalShareholderEquity)) * 100
+              : null,
+          debtRatio:
+            r.totalLiabilities && r.totalAssets
+              ? (Number(r.totalLiabilities) / Number(r.totalAssets)) * 100
+              : null
+        }))
+      );
+    } catch (e) {
+      setError("데이터 불러오기 실패");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const renderChart = (title: string, data: any[], color: string, unit?: string) => (
-    <div style={{ marginTop: '3rem' }}>
-      <h2>{title}</h2>
-      <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-          <YAxis tickFormatter={formatNumber} tick={{ fontSize: 12 }} />
-          <Tooltip formatter={v => formatNumber(v as number)} />
-          <Legend />
-          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', background: 'black', color: 'white' }}>
-      <h1 style={{ fontSize: '2rem' }}>📈 미국 주식 분석기</h1>
+    <div style={{ padding: "2rem", background: "black", color: "white", fontFamily: "Arial" }}>
+      <h1 style={{ fontSize: "2rem" }}>📈 미국 주식 분석기</h1>
       <input
-        list="tickers"
+        placeholder="티커 (예: AAPL)"
         value={ticker}
-        onChange={e => setTicker(e.target.value)}
-        style={{ padding: '0.5rem', marginRight: '1rem', fontSize: '1rem' }}
+        onChange={(e) => setTicker(e.target.value)}
+        style={{ padding: "0.5rem", marginRight: "0.5rem", fontSize: "1rem" }}
       />
-      <datalist id="tickers">
-        <option value="AAPL" />
-        <option value="GOOGL" />
-        <option value="MSFT" />
-        <option value="TSLA" />
-        <option value="NVDA" />
-        <option value="AMZN" />
-        <option value="META" />
-      </datalist>
-      <button onClick={fetchData} style={{ padding: '0.5rem 1rem', fontSize: '1rem' }}>
-        분석하기
-      </button>
+      <button onClick={fetchData} style={{ padding: "0.5rem 1rem", fontSize: "1rem" }}>분석하기</button>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {loading && <p>불러오는 중...</p>}
+      {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {prices.length > 0 && renderChart('주가 추이', prices.map(p => ({ date: p.date, value: p.close })), '#00eaff')}
+      {/* 주가 */}
+      {priceData.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 30 }}>주가 추이</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={priceData} margin={{ bottom: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" angle={-30} textAnchor="end" height={70} />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line dataKey="close" stroke="#00eaff" name="주가" dot={false} strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
+      )}
 
-      {Object.entries(statMap).map(([key, data]) =>
-        renderChart(`${{
-          totalRevenue: '매출 추이',
-          netIncome: '순이익 추이',
-          operatingMargin: '영업이익률 (%)',
-          eps: 'EPS',
-          per: 'PER',
-          pbr: 'PBR',
-          roe: 'ROE (%)',
-          debtRatio: '부채비율 (%)'
-        }[key]}`, data, {
-          totalRevenue: '#1f77b4',
-          netIncome: '#ff7f0e',
-          operatingMargin: '#2ca02c',
-          eps: '#d62728',
-          per: '#9467bd',
-          pbr: '#8c564b',
-          roe: '#e377c2',
-          debtRatio: '#7f7f7f',
-        }[key])
+      {/* 매출 */}
+      {incomeData.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 30 }}>매출 추이</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={incomeData} margin={{ bottom: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" angle={-30} textAnchor="end" height={70} />
+              <YAxis tickFormatter={formatMillion} />
+              <Tooltip />
+              <Legend />
+              <Line dataKey="revenue" stroke="#1f77b4" name="매출" dot={false} strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+
+          <h2 style={{ marginTop: 30 }}>순이익 추이</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={incomeData} margin={{ bottom: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" angle={-30} textAnchor="end" height={70} />
+              <YAxis tickFormatter={formatMillion} />
+              <Tooltip />
+              <Legend />
+              <Line dataKey="netIncome" stroke="#ff7f0e" name="순이익" dot={false} strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
+      )}
+
+      {/* 재무 지표 */}
+      {metricsData.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 30 }}>재무 지표 추이</h2>
+          <ResponsiveContainer width="100%" height={350}>
+            <LineChart data={metricsData} margin={{ bottom: 50 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" angle={-30} textAnchor="end" height={70} />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line dataKey="operatingMargin" stroke="#8884d8" name="영업이익률 %" dot={false} strokeWidth={2} />
+              <Line dataKey="eps" stroke="#82ca9d" name="EPS" dot={false} strokeWidth={2} />
+              <Line dataKey="roe" stroke="#ffbb28" name="ROE %" dot={false} strokeWidth={2} />
+              <Line dataKey="debtRatio" stroke="#d62728" name="부채비율 %" dot={false} strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
       )}
     </div>
   );
