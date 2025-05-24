@@ -11,6 +11,8 @@ import {
   Legend
 } from "recharts";
 
+const formatMillion = (value: number) => `${(value / 1_000_000).toFixed(0)}M`;
+
 export default function Page() {
   const [ticker, setTicker] = useState("");
   const [priceData, setPriceData] = useState([]);
@@ -31,8 +33,8 @@ export default function Page() {
 
       if (priceJson.error || incomeJson.error) throw new Error("API 오류");
 
-      setPriceData(priceJson.prices);
-      const reports = incomeJson.data || [];
+      setPriceData(priceJson.prices.reverse());
+      const reports = (incomeJson.data || []).reverse();
 
       setIncomeData(
         reports.map((r) => ({
@@ -92,7 +94,7 @@ export default function Page() {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line dataKey="close" stroke="#00eaff" name="주가" dot={false} />
+              <Line dataKey="close" stroke="#00eaff" name="주가" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </>
@@ -106,10 +108,10 @@ export default function Page() {
             <LineChart data={incomeData} margin={{ bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" angle={-30} textAnchor="end" height={70} />
-              <YAxis />
+              <YAxis tickFormatter={formatMillion} />
               <Tooltip />
               <Legend />
-              <Line dataKey="revenue" stroke="#1f77b4" name="매출" dot={false} />
+              <Line dataKey="revenue" stroke="#1f77b4" name="매출" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
 
@@ -118,10 +120,10 @@ export default function Page() {
             <LineChart data={incomeData} margin={{ bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" angle={-30} textAnchor="end" height={70} />
-              <YAxis />
+              <YAxis tickFormatter={formatMillion} />
               <Tooltip />
               <Legend />
-              <Line dataKey="netIncome" stroke="#ff7f0e" name="순이익" dot={false} />
+              <Line dataKey="netIncome" stroke="#ff7f0e" name="순이익" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </>
@@ -138,10 +140,10 @@ export default function Page() {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line dataKey="operatingMargin" stroke="#8884d8" name="영업이익률 %" dot={false} />
-              <Line dataKey="eps" stroke="#82ca9d" name="EPS" dot={false} />
-              <Line dataKey="roe" stroke="#ffbb28" name="ROE %" dot={false} />
-              <Line dataKey="debtRatio" stroke="#d62728" name="부채비율 %" dot={false} />
+              <Line dataKey="operatingMargin" stroke="#8884d8" name="영업이익률 %" dot={false} strokeWidth={2} />
+              <Line dataKey="eps" stroke="#82ca9d" name="EPS" dot={false} strokeWidth={2} />
+              <Line dataKey="roe" stroke="#ffbb28" name="ROE %" dot={false} strokeWidth={2} />
+              <Line dataKey="debtRatio" stroke="#d62728" name="부채비율 %" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </>
