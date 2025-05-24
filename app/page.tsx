@@ -12,9 +12,10 @@ export default function Page() {
   const [error, setError] = useState('');
 
   const formatNumber = (num: number) => {
-    if (Math.abs(num) >= 1_0000_0000) return `${(num / 1_0000_0000).toFixed(1)}억`;
-    if (Math.abs(num) >= 1_0000) return `${(num / 1_0000).toFixed(1)}만`;
-    return num;
+    if (Math.abs(num) >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`;
+    if (Math.abs(num) >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(num) >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+    return num.toFixed(0);
   };
 
   const fetchData = async () => {
@@ -28,7 +29,7 @@ export default function Page() {
         return;
       }
 
-      const reports = json.data.reverse(); // 최신순 오른쪽으로
+      const reports = json.data.reverse(); // 최신이 오른쪽
       const stats = {
         totalRevenue: [],
         netIncome: [],
@@ -62,26 +63,27 @@ export default function Page() {
 
       setStatMap(stats);
 
-      // 주가 따로 가져오기
       const priceRes = await fetch(`/api/price?ticker=${ticker}`);
       const priceJson = await priceRes.json();
-      if (!priceJson.error) setPrices(priceJson.prices.reverse()); // 최신 오른쪽
+      if (!priceJson.error) {
+        setPrices(priceJson.prices.map(p => ({ date: p.date, value: p.close })).reverse());
+      }
     } catch (e: any) {
       setError('API 오류 발생');
     }
   };
 
-  const renderChart = (title: string, data: any[], color: string, unit?: string) => (
+  const renderChart = (title: string, data: any[], color: string) => (
     <div style={{ marginTop: '3rem' }}>
       <h2>{title}</h2>
-      <ResponsiveContainer width="100%" height={250}>
+      <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+          <XAxis dataKey="date" tick={{ fontSize: 11 }} />
           <YAxis tickFormatter={formatNumber} tick={{ fontSize: 12 }} />
-          <Tooltip formatter={v => formatNumber(v as number)} />
+          <Tooltip formatter={(v) => formatNumber(v as number)} />
           <Legend />
-          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} />
+          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={3} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -111,28 +113,33 @@ export default function Page() {
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {prices.length > 0 && renderChart('주가 추이', prices.map(p => ({ date: p.date, value: p.close })), '#00eaff')}
+      {prices.length > 0 &&
+        renderChart("주가 추이", prices, "#00eaff")}
 
       {Object.entries(statMap).map(([key, data]) =>
-        renderChart(`${{
-          totalRevenue: '매출 추이',
-          netIncome: '순이익 추이',
-          operatingMargin: '영업이익률 (%)',
-          eps: 'EPS',
-          per: 'PER',
-          pbr: 'PBR',
-          roe: 'ROE (%)',
-          debtRatio: '부채비율 (%)'
-        }[key]}`, data, {
-          totalRevenue: '#1f77b4',
-          netIncome: '#ff7f0e',
-          operatingMargin: '#2ca02c',
-          eps: '#d62728',
-          per: '#9467bd',
-          pbr: '#8c564b',
-          roe: '#e377c2',
-          debtRatio: '#7f7f7f',
-        }[key])
+        renderChart(
+          {
+            totalRevenue: "매출 추이",
+            netIncome: "순이익 추이",
+            operatingMargin: "영업이익률 (%)",
+            eps: "EPS",
+            per: "PER",
+            pbr: "PBR",
+            roe: "ROE (%)",
+            debtRatio: "부채비율 (%)",
+          }[key],
+          data,
+          {
+            totalRevenue: "#1f77b4",
+            netIncome: "#ff7f0e",
+            operatingMargin: "#2ca02c",
+            eps: "#d62728",
+            per: "#9467bd",
+            pbr: "#8c564b",
+            roe: "#e377c2",
+            debtRatio: "#7f7f7f",
+          }[key]
+        )
       )}
     </div>
   );
