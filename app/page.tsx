@@ -1,3 +1,4 @@
+
 // app/page.tsx
 'use client';
 
@@ -7,7 +8,7 @@ import {
 } from 'recharts';
 
 const tickerList = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'BRK.B', 'V', 'UNH'];
-const baseUrl = "https://stock-api-railway-production.up.railway.app"; // 직접 호출 주소 고정
+const baseUrl = "https://stock-api-railway-production.up.railway.app"; // /api 제거됨
 
 export default function Page() {
   const [input, setInput] = useState('');
@@ -19,7 +20,7 @@ export default function Page() {
   const fetchData = async (ticker: string) => {
     setError('');
     try {
-      const res = await fetch(`${baseUrl}/api/income?ticker=${ticker}`);
+      const res = await fetch(`${baseUrl}/income?ticker=${ticker}`);
       const json = await res.json();
       if (!json.data || json.data.length === 0) throw new Error('no data');
 
@@ -47,7 +48,7 @@ export default function Page() {
         newMap.debt.push({ date, value: eq ? (+r.totalLiabilities / eq) * 100 : 0 });
       }
 
-      const priceRes = await fetch(`${baseUrl}/api/price?ticker=${ticker}`);
+      const priceRes = await fetch(`${baseUrl}/price?ticker=${ticker}`);
       const priceJson = await priceRes.json();
       newMap.price = priceJson.prices.reverse().map((p: any) => ({ date: p.date, value: p.close }));
 
