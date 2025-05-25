@@ -7,46 +7,54 @@ import {
 } from 'recharts';
 
 const tickerList = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'BRK.B', 'V', 'UNH'];
+const baseUrl = "https://stock-api-railway-production.up.railway.app"; // 직접 호출 주소 고정
 
 export default function Page() {
   const [input, setInput] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selectedTicker, setSelectedTicker] = useState('');
   const [dataMap, setDataMap] = useState<Record<string, any[]>>({});
+  const [error, setError] = useState('');
 
   const fetchData = async (ticker: string) => {
-    const res = await fetch(`/api/income?ticker=${ticker}`);
-    const json = await res.json();
-    const reports = json.data.reverse();
+    setError('');
+    try {
+      const res = await fetch(`${baseUrl}/api/income?ticker=${ticker}`);
+      const json = await res.json();
+      if (!json.data || json.data.length === 0) throw new Error('no data');
 
-    const newMap: Record<string, any[]> = {
-      revenue: [], netIncome: [], operatingMargin: [], eps: [],
-      per: [], pbr: [], roe: [], debt: []
-    };
+      const reports = json.data.reverse();
+      const newMap: Record<string, any[]> = {
+        revenue: [], netIncome: [], operatingMargin: [], eps: [],
+        per: [], pbr: [], roe: [], debt: []
+      };
 
-    for (const r of reports) {
-      const date = r.fiscalDateEnding;
-      const rev = +r.totalRevenue;
-      const ni = +r.netIncome;
-      const op = +r.operatingIncome;
-      const eq = +r.totalAssets - +r.totalLiabilities;
-      const shares = +r.commonStockSharesOutstanding;
+      for (const r of reports) {
+        const date = r.fiscalDateEnding;
+        const rev = +r.totalRevenue;
+        const ni = +r.netIncome;
+        const op = +r.operatingIncome;
+        const eq = +r.totalAssets - +r.totalLiabilities;
+        const shares = +r.commonStockSharesOutstanding;
 
-      newMap.revenue.push({ date, value: rev });
-      newMap.netIncome.push({ date, value: ni });
-      newMap.operatingMargin.push({ date, value: rev ? (op / rev) * 100 : 0 });
-      newMap.eps.push({ date, value: ni / shares });
-      newMap.per.push({ date, value: shares ? rev / shares : 0 });
-      newMap.pbr.push({ date, value: eq ? rev / eq : 0 });
-      newMap.roe.push({ date, value: eq ? (ni / eq) * 100 : 0 });
-      newMap.debt.push({ date, value: eq ? (+r.totalLiabilities / eq) * 100 : 0 });
+        newMap.revenue.push({ date, value: rev });
+        newMap.netIncome.push({ date, value: ni });
+        newMap.operatingMargin.push({ date, value: rev ? (op / rev) * 100 : 0 });
+        newMap.eps.push({ date, value: ni / shares });
+        newMap.per.push({ date, value: shares ? rev / shares : 0 });
+        newMap.pbr.push({ date, value: eq ? rev / eq : 0 });
+        newMap.roe.push({ date, value: eq ? (ni / eq) * 100 : 0 });
+        newMap.debt.push({ date, value: eq ? (+r.totalLiabilities / eq) * 100 : 0 });
+      }
+
+      const priceRes = await fetch(`${baseUrl}/api/price?ticker=${ticker}`);
+      const priceJson = await priceRes.json();
+      newMap.price = priceJson.prices.reverse().map((p: any) => ({ date: p.date, value: p.close }));
+
+      setDataMap(newMap);
+    } catch (err) {
+      setError('데이터 불러오기 실패');
     }
-
-    const priceRes = await fetch(`/api/price?ticker=${ticker}`);
-    const priceJson = await priceRes.json();
-    newMap.price = priceJson.prices.reverse().map((p: any) => ({ date: p.date, value: p.close }));
-
-    setDataMap(newMap);
   };
 
   const onInputChange = (v: string) => {
@@ -104,6 +112,8 @@ export default function Page() {
           ))}
         </div>
       )}
+
+      {error && <p style={{ color: 'red', marginTop: 16 }}>{error}</p>}
 
       {selectedTicker && <>
         {renderChart('주가 추이', 'price', '#00eaff')}
